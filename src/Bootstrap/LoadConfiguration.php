@@ -3,7 +3,7 @@
 use SplFileInfo;
 use Illuminate\Config\Repository;
 use Symfony\Component\Finder\Finder;
-use Tekton\Core as Application;
+use Tekton\Application;
 use Illuminate\Contracts\Config\Repository as RepositoryContract;
 
 class LoadConfiguration
