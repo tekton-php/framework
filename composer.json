@@ -1,8 +1,8 @@
 {
-    "name": "tekton/foundation",
+    "name": "tekton/framework",
     "license": "MIT",
     "description": "Tekton is a lightweight PHP framework, designed to integrate well with existing Laravel Illuminate components.",
-    "homepage": "https://gitlab.com/tekton/foundation",
+    "homepage": "https://github.com/tekton-wp/framework",
     "autoload": {
         "psr-4": {
             "Tekton\\": "src/",
@@ -15,14 +15,17 @@
     "minimum-stability": "dev",
     "require": {
         "php": ">=7.0.0",
-        "tekton/support": "^1.0.0",
-        "illuminate/support": "~5.4.0",
-        "illuminate/contracts": "~5.4.0",
-        "illuminate/http": "~5.4.0",
-        "illuminate/container": "~5.4.0",
-        "illuminate/cache": "~5.4.0",
-        "illuminate/config": "~5.4.0",
+        "tekton/support": "^2.0.0",
+        "illuminate/contracts": "^5.4",
+        "illuminate/http": "^5.4",
+        "illuminate/events": "^5.4",
+        "illuminate/container": "^5.4",
+        "illuminate/config": "^5.4",
+        "illuminate/encryption": "^5.4",
+        "illuminate/hashing": "^5.4",
+        "illuminate/cache": "^5.4",
         "symfony/finder": "~3.2",
-        "symfony/http-kernel": "~3.2"
+        "symfony/http-kernel": "~3.2",
+        "vlucas/phpdotenv": "^2.4"
     }
 }

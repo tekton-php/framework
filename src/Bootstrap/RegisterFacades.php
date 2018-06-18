@@ -1,7 +1,7 @@
 <?php namespace Tekton\Bootstrap;
 
-use Tekton\Support\Facade;
-use Illuminate\Contracts\Container\Container;
+use Dynamis\Facade;
+use Illuminate\Contracts\Foundation\Application;
 use Tekton\AliasLoader;
 
 class RegisterFacades
@@ -12,12 +12,12 @@ class RegisterFacades
      * @param  \Illuminate\Contracts\Foundation\Application  $app
      * @return void
      */
-    public function bootstrap(Container $app)
+    public function bootstrap(Application $app)
     {
         Facade::clearResolvedInstances();
 
         Facade::setFacadeApplication($app);
 
-        AliasLoader::getInstance($app->make('config')->get('app.aliases', []))->register();
+        AliasLoader::getInstance($app['config']->get('app.aliases', []))->register();
     }
 }

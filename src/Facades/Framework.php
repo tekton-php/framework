@@ -1,9 +1,9 @@
 <?php namespace Tekton\Facades;
 
-class Request extends \Dynamis\Facade
+class Framework extends \Dynamis\Facade
 {
     protected static function getFacadeAccessor()
     {
-        return 'request';
+        return 'framework';
     }
 }

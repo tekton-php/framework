@@ -1,5 +1,9 @@
 <?php namespace Tekton\Facades;
 
-class App extends \Tekton\Support\Facade {
-    protected static function getFacadeAccessor() { return 'app'; }
+class App extends \Dynamis\Facade
+{
+    protected static function getFacadeAccessor()
+    {
+        return 'app';
+    }
 }
