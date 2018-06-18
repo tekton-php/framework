@@ -34,8 +34,10 @@ class Framework implements Singleton
 
     public function loadEnv($dir)
     {
-        $dotenv = new Dotenv($dir);
-        $dotenv->load();
+        if (file_exists("$dir/.env")) {
+            $dotenv = new Dotenv($dir);
+            $dotenv->load();
+        }
     }
 
     public function init($basePath, $baseUri)
