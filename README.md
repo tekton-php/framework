@@ -3,7 +3,7 @@ Tekton
 
 Tekton is a lightweight PHP framework, designed to integrate well with existing Laravel Illuminate components. `tekton/framework` is the core that sets up the Service Container, the request and input handling, and the configuration loading.
 
-The reason it was created was to allow integrating the power and ease of use of Laravel when working in more limited environments. A good example is the [Dynamis](https://gitlab.com/tekton/wordpress) project that does exactly that.
+The reason it was created was to allow integrating the power and ease of use of Laravel when working in more limited environments. A good example is the [Dynamis](https://github.com/dynamis-wp/framework) project that does exactly that.
 
 To get started, just require the project in your composer configuration and initialize the framework.
 

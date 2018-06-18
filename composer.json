@@ -2,7 +2,7 @@
     "name": "tekton/framework",
     "license": "MIT",
     "description": "Tekton is a lightweight PHP framework, designed to integrate well with existing Laravel Illuminate components.",
-    "homepage": "https://github.com/tekton-wp/framework",
+    "homepage": "https://github.com/tekton-php/framework",
     "autoload": {
         "psr-4": {
             "Tekton\\": "src/",
