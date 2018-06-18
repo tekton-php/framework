@@ -119,14 +119,6 @@ if (! function_exists('config_path')) {
     }
 }
 
-if (! function_exists('cwd_rel_path')) {
-    // Convert an absolute path to a relative
-    function cwd_rel_path($uri)
-    {
-        return rel_path($uri, get_path('cwd'));
-    }
-}
-
 if (! function_exists('app_uri')) {
     /**
      * Get the uri to the application folder.
@@ -153,16 +145,17 @@ if (! function_exists('get_path')) {
     }
 }
 
-if (! function_exists('cwd')) {
+if (! function_exists('cwd_path')) {
     /**
      * Get the uri to the application folder.
      *
      * @param  string  $uri
      * @return string
      */
-    function cwd()
+    function cwd_path($path = '')
     {
-        return (app()->hasPath('cwd')) ? app_path('cwd') : getcwd();
+        $cwd = (app()->hasPath('cwd')) ? app_path('cwd') : getcwd();
+        return $cwd.($path ? DS.$path : $path);
     }
 }
 
@@ -179,9 +172,6 @@ if (! function_exists('get_uri')) {
     }
 }
 
-
-
-
 if (! function_exists('storage_path')) {
     /**
      * Get the path to the storage folder.
@@ -194,8 +184,6 @@ if (! function_exists('storage_path')) {
         return app('path.storage').($path ? DS.$path : $path);
     }
 }
-
-
 
 if (! function_exists('config')) {
     /**
