@@ -1,6 +1,6 @@
 <?php namespace Tekton\Facades;
 
-class Config extends \Dynamis\Facade
+class Config extends \Tekton\Facade
 {
     protected static function getFacadeAccessor()
     {

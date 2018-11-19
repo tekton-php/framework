@@ -1,27 +1,59 @@
-Tekton
-======
+Tekton Framework
+================
 
-Tekton is a lightweight PHP framework, designed to integrate well with existing Laravel Illuminate components. `tekton/framework` is the core that sets up the Service Container, the request and input handling, and the configuration loading.
+Tekton is a lightweight PHP micro-framework, designed to integrate as a shim in older codebases to enable modern design patterns. `tekton/framework` is the core of sub-frameworks that provides config loading, DI container, environment loading, service providers, facades and class aliases.
 
-The reason it was created was to allow integrating the power and ease of use of Laravel when working in more limited environments. A good example is the [Dynamis](https://github.com/dynamis-wp/framework) project that does exactly that.
+The reason it was created was to allow integrating the power and ease of use of modern design patterns when working in more limited environments. A good example is the [Dynamis](https://github.com/dynamis-wp/framework) project that does exactly that by enabling this within a WordPress environment.
 
-To get started, just require the project in your composer configuration and initialize the framework.
+## Installation
 
-**Sample Code**
-```php
-// Autoload classes
-require_once __DIR__ . '/vendor/autoload.php';
-
-$framework = \Tekton\Framework::instance();
-$framework->init(__DIR__, 'http://localhost/');
+```sh
+composer require tekton/framework
 ```
 
-By default all configuration files will be loaded from `[project]/config` but the framework is meant to be easily extended and you can either completely override the config or simply appending additional files or directories.
+## Usage
+
+To get started, just require the project in your composer configuration, provide a PSR-11 container and initialize the framework.
 
 ```php
-$framework->overrideConfig('path/to/theme/config');
-// OR
-$framework->addConfig('path/to/theme/config');
+require_once 'vendor/autoload.php';
+
+use Tekton\Framework;
+use DI\Container;
+
+$framework = Framework::getInstance();
+$framework->setContainer(new Container)
+          ->setEnvironment('development')
+          ->setResourceCaching(true)
+          ->setCacheDir(__DIR__.'/cache')
+          ->registerConfig(__DIR__.'/config');
+          ->setFacadeNamespace('Project\\Facades', __DIR__.'/Facades')
+          ->registerAlias('ProjectClass', 'Project\\Class');
+
+$framework->registerProvider([
+    \Project\Providers\ServiceOne::class,
+    \Project\Providers\ServiceTwo::class,
+    \Project\Providers\ServiceThree::class,
+]);
+
+$framework->init(__DIR__, 'http://localhost:8000/');
 ```
 
-Config is treated separately but all other framework paths and URIs can be overridden with `overridePath` and `overrideUri`.
+There are several helper functions to quickly retrieve config values, services or resource URIs. You can also initialize the framework in steps if you need to retrieve config values before registering providers or aliases.
+
+```php
+$framework = Framework::getInstance();
+$framework->setContainer(new Container)
+          ->registerConfig(__DIR__.'/config')
+          ->loadEnv()
+          ->loadConfig();
+
+$framework->registerProvider(app('config')->get('app.providers'));
+$framework->registerAlias(app('config')->get('app.aliases'));
+
+$framework->init(__DIR__, 'http://localhost:8000/');
+```
+
+## License
+
+MIT

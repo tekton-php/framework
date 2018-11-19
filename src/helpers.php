@@ -3,25 +3,18 @@
 if (! function_exists('framework')) {
     function framework()
     {
-        return app('framework');
+        return \Tekton\Framework::getInstance();
     }
 }
 
 if (! function_exists('app')) {
-
-    /**
-     * Get the available container instance.
-     *
-     * @param  string  $abstract
-     * @return mixed|\Tekton\Application
-     */
     function app($abstract = null)
     {
         if (is_null($abstract)) {
-            return \Tekton\Application::getInstance();
+            return framework()->getContainer();
         }
 
-        return \Tekton\Application::getInstance()->make($abstract);
+        return framework()->getContainer()->get($abstract);
     }
 }
 
@@ -74,22 +67,8 @@ if (! function_exists('app_env')) {
             return (strtolower(app_env()) == $test) ? true : false;
         }
         else {
-            return (defined('TEKTON_ENV')) ? TEKTON_ENV : null;
+            return \Tekton\Framework::getInstance()->getEnvironment();
         }
-    }
-}
-
-if (! function_exists('encrypt')) {
-    function encrypt($value, $serialize = true)
-    {
-        return app('encrypter')->encrypt($value, $serialize);
-    }
-}
-
-if (! function_exists('decrypt')) {
-    function decrypt($payload, $unserialize = true)
-    {
-        return app('encrypter')->decrypt($payload, $unserialize);
     }
 }
 
@@ -102,7 +81,7 @@ if (! function_exists('app_path')) {
      */
     function app_path($path = '')
     {
-        return app('path').($path ? DS.$path : $path);
+        return app('resources')->getRootPath().($path ? DS.$path : $path);
     }
 }
 
@@ -115,20 +94,20 @@ if (! function_exists('config_path')) {
      */
     function config_path($path = '')
     {
-        return app('path.config').($path ? DS.$path : $path);
+        return app('resources')->get('config').($path ? DS.$path : $path);
     }
 }
 
-if (! function_exists('app_uri')) {
+if (! function_exists('app_url')) {
     /**
      * Get the uri to the application folder.
      *
      * @param  string  $uri
      * @return string
      */
-    function app_uri($uri = '')
+    function app_url($url = '')
     {
-        return app('uri').($uri ? DS.$uri : $uri);
+        return app('resources')->getRootUrl().($url ? DS.$url : $url);
     }
 }
 
@@ -139,49 +118,22 @@ if (! function_exists('get_path')) {
      * @param  string  $path
      * @return string
      */
-    function get_path($path = '')
+    function get_path($path)
     {
-        return app('path'.(empty($path) ? '' : '.'.$path));
+        return app('resources')->getPath($path);
     }
 }
 
-if (! function_exists('cwd_path')) {
+if (! function_exists('get_url')) {
     /**
      * Get the uri to the application folder.
      *
      * @param  string  $uri
      * @return string
      */
-    function cwd_path($path = '')
+    function get_url($url = '')
     {
-        $cwd = (app()->hasPath('cwd')) ? app_path('cwd') : getcwd();
-        return $cwd.($path ? DS.$path : $path);
-    }
-}
-
-if (! function_exists('get_uri')) {
-    /**
-     * Get the uri to the application folder.
-     *
-     * @param  string  $uri
-     * @return string
-     */
-    function get_uri($uri = '')
-    {
-        return app('uri'.(empty($uri) ? '' : '.'.$uri));
-    }
-}
-
-if (! function_exists('storage_path')) {
-    /**
-     * Get the path to the storage folder.
-     *
-     * @param  string  $path
-     * @return string
-     */
-    function storage_path($path = '')
-    {
-        return app('path.storage').($path ? DS.$path : $path);
+        return app('resources')->getUrl($url);
     }
 }
 
@@ -195,73 +147,8 @@ if (! function_exists('config')) {
      * @param  mixed  $default
      * @return mixed
      */
-    function config($key = null, $default = null)
+    function config($key, $default = null)
     {
-        if (is_null($key)) {
-            return app('config');
-        }
-
-        if (is_array($key)) {
-            return app('config')->set($key);
-        }
-
         return app('config')->get($key, $default);
-    }
-}
-
-if (! function_exists('cache')) {
-    /**
-     * Get / set the specified cache value.
-     *
-     * If an array is passed, we'll assume you want to put to the cache.
-     *
-     * @param  dynamic  key|key,default|data,expiration|null
-     * @return mixed
-     *
-     * @throws \Exception
-     */
-    function cache()
-    {
-        $arguments = func_get_args();
-
-        if (empty($arguments)) {
-            return app('cache');
-        }
-
-        if (is_string($arguments[0])) {
-            return app('cache')->get($arguments[0], isset($arguments[1]) ? $arguments[1] : null);
-        }
-
-        if (is_array($arguments[0])) {
-            if (! isset($arguments[1])) {
-                throw new Exception(
-                    'You must set an expiration time when putting to the cache.'
-                );
-            }
-
-            return app('cache')->put(key($arguments[0]), reset($arguments[0]), $arguments[1]);
-        }
-    }
-}
-
-if (! function_exists('event')) {
-    /**
-     * Fire an event and call the listeners.
-     *
-     * @param  object|string  $event
-     * @param  mixed   $payload
-     * @param  bool    $halt
-     * @return array|null
-     */
-    function event($event, $payload = [], $halt = false)
-    {
-        return app('events')->fire($event, $payload, $halt);
-    }
-}
-
-if (! function_exists('user_ip')) {
-    function user_ip()
-    {
-        return app('request')->ip();
     }
 }

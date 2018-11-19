@@ -1,230 +1,380 @@
 <?php namespace Tekton;
 
-use Tekton\Application;
+use Exception;
+use Symfony\Component\Dotenv\Dotenv;
+use Psr\Container\ContainerInterface;
+
+use Tekton\Facade;
+use Tekton\Config;
+use Tekton\ResourceManager;
+use Tekton\Support\Contracts\Store;
 use Tekton\Support\Contracts\Singleton;
-use Dotenv\Dotenv;
+use Tekton\Contracts\ServiceProviderInterface;
+use Tekton\Contracts\ResourceManagerInterface;
 
 class Framework implements Singleton
 {
     protected $container;
-    protected $configs = [];
-    protected $overrides = [
-        'path' => [],
-        'uri' => [],
-    ];
+    protected $resources;
+    protected $config;
+    protected $dotenv;
 
-    use \Tekton\Support\Traits\LibraryWrapper;
+    protected $cacheDir;
+    protected $init = false;
+    protected $cache = false;
+    protected $env = null;
+    protected $configs = [];
+    protected $urls = [];
+    protected $paths = [];
+    protected $providers = [];
+    protected $loadedProviders = [];
+    protected $aliases = [];
+    protected $facadeNamespace = '';
+    protected $facadeDir = '';
+
     use \Tekton\Support\Traits\Singleton;
 
     public function __construct()
     {
         // Tekton globals
-        if ( ! defined('TEKTON_VERSION'))
-            define('TEKTON_VERSION', '1.0.0');
-        if ( ! defined('TEKTON_DIR'))
+        if (! defined('TEKTON_VERSION'))
+            define('TEKTON_VERSION', '3.0.0');
+        if (! defined('TEKTON_DIR'))
             define('TEKTON_DIR', __DIR__);
-
-        // Register Application and Framework in Container
-        $this->container = $this->library = new Application();
-        $this->container->instance('framework', $this);
-
-        // register event listener for clearing framework cache
-        $this->container['events']->listen('framework: cache.clear', [$this, 'clearCache']);
     }
 
-    public function loadEnv($dir)
+    public function init($basePath, $baseUrl = '')
     {
-        if (file_exists("$dir/.env")) {
-            $dotenv = new Dotenv($dir);
-            $dotenv->load();
+        if ($this->init) {
+            throw new Exception("You cannot re-init the framework");
         }
-    }
+        if ($this->cache && ! $this->cacheDir) {
+            throw new Exception("You must configure a cache directory");
+        }
+        if (! $this->container) {
+            throw new Exception("A PSR-11 container must be set before initializing");
+        }
 
-    public function init($basePath, $baseUri)
-    {
-        // Either set base path and uri
-        $this->container->setBasePath($basePath);
-        $this->container->setBaseUri($baseUri);
-        $this->loadEnv($basePath);
+        // Load environment
+        if (! $this->dotenv) {
+            $this->loadEnv($basePath);
+        }
 
-        // Start initalization of base system
-        $this->container['events']->fire('framework: init', [$this->container]);
+        // Load config
+        if (! $this->config) {
+            $this->loadConfig();
+        }
 
-        // Start up core components
-        $this->registerPaths();
-        $this->registerUris();
-        $this->registerConfig();
-        $this->bootstrap();
-        $this->registerCore();
+        // Create resource URIs manager
+        if (! $this->resources) {
+            $this->setResourceManager(new ResourceManager($basePath, $baseUrl));
 
-        // Framework ready (running event is to allow additional hooks)
-        $this->container['events']->fire('framework: running', [$this->container]);
-        $this->container['events']->fire('framework: ready', [$this->container]);
+            // Register resource URIs
+            $this->resources->setPath($this->paths);
+            $this->resources->setUrl($this->urls);
+        }
 
-        // Boot Application
-        $this->container['events']->fire('app: boot', [$this->container]);
-        $this->container->boot();
+        // Register alias autoload
+        spl_autoload_register([$this, 'aliasLoader'], true, true);
 
-        // All services are loaded
-        $this->container['events']->fire('app: running', [$this->container]);
-        $this->container['events']->fire('app: ready', [$this->container]);
+        // Register providers
+        $this->loadProviders();
+        $this->init = true;
 
         return $this;
     }
 
-    public function registerConfig($paths = [])
+    public function loadProviders()
     {
-        // Fire event for this step of the framework init process
-        $this->container['events']->fire('framework: config', [$this->container]);
-
-        // Only add Tekton's default config path if no other has been provided
-        if (empty($paths)) {
-            $paths = [$this->container->path().DS.'config'];
+        if (! $this->container) {
+            throw new Exception("A PSR-11 container must be set before loading providers");
         }
 
-        if (! empty($this->config)) {
-            $paths = array_merge($paths, $this->config);
+        $unloaded = array_diff_key($this->providers, $this->loadedProviders);
+        $unloaded = array_intersect_key($this->providers, $unloaded);
+        $loading = [];
+
+        // Run register method
+        foreach ($unloaded as $class => $provider) {
+            if (! $provider instanceof ServiceProviderInterface) {
+                $provider = new $provider;
+            }
+
+            if ($provider instanceof ServiceProviderInterface) {
+                $provider->register($this->container);
+                $loading[$class] = $provider;
+            }
         }
 
-        // Register in Application
-        $this->container->registerConfig($paths);
+        // Run boot method
+        foreach ($loading as $class => $provider) {
+            $provider->boot($this->container);
+            $this->loadedProviders[$class] = $provider;
+        }
+    }
+
+    public function aliasLoader($alias)
+    {
+        if (isset($this->aliases[$alias])) {
+            return class_alias($this->aliases[$alias], $alias);
+        }
+
+        if ($this->facadeNamespace) {
+            $class = $this->facadeNamespace.'\\'.$alias;
+            $path = $this->facadeDir.DS.str_replace('\\', DS, $alias).'.php';
+
+            if (file_exists($path)) {
+                return class_alias($class, $alias);
+            }
+        }
+
+        return false;
+    }
+
+    public function setFacadeNamespace($namespace, $dir)
+    {
+        $this->facadeNamespace = $namespace;
+        $this->facadeDir = $dir;
+        return $this;
+    }
+
+    public function setResourceCaching($state, $dir = '')
+    {
+        $this->cache = (bool) $state;
+
+        if ($dir) {
+            $this->setCacheDir($dir);
+        }
 
         return $this;
     }
 
-    public function addConfig($file)
+    public function getResourceCaching()
     {
-        if (is_array($file)) {
-            $this->config = array_merge($this->config, $file);
+        return $this->cache;
+    }
+
+    public function setCacheDir($dir)
+    {
+        $this->cacheDir = ensure_dir_exists($dir);
+        return $this;
+    }
+
+    public function getCacheDir()
+    {
+        return $this->cacheDir;
+    }
+
+    public function loadEnv($path)
+    {
+        if (is_dir($path)) {
+            $path = $path.DS.'.env';
+        }
+
+        if (file_exists($path)) {
+            if (! $this->dotenv) {
+                $this->dotenv = new Dotenv;
+            }
+
+            $this->dotenv->load($path);
+        }
+
+        return $this;
+    }
+
+    public function setContainer(ContainerInterface $container)
+    {
+        $container->set(ContainerInterface::class, $container);
+        $container->set('app', $container);
+        $this->container = $container;
+
+        Facade::clearResolvedInstances();
+        Facade::setFacadeContainer($container);
+
+        return $this;
+    }
+
+    public function getContainer()
+    {
+        return $this->container;
+    }
+
+    public function setResourceManager(ResourceManagerInterface $resources)
+    {
+        $this->container->set(ResourceManagerInterface::class, $resources);
+        $this->container->set('resources', $resources);
+        $this->resources = $resources;
+
+        return $this;
+    }
+
+    public function getResourceManager()
+    {
+        return $this->resources;
+    }
+
+    public function setConfig(Store $config)
+    {
+        $this->container->set(Config::class, $config);
+        $this->container->set('config', $config);
+        $this->config = $config;
+
+        return $this;
+    }
+
+    public function getConfig()
+    {
+        return $this->config;
+    }
+
+    public function registerPath($name, $path = '')
+    {
+        if (is_array($name)) {
+            $this->paths = array_merge($this->paths, $name);
         }
         else {
-            $this->config[] = $file;
+            $this->paths[$name] = $path;
         }
-    }
 
-    public function overrideConfig($files)
-    {
-        $this->config = $files;
-    }
-
-    public function registerPaths($paths = [])
-    {
-        // Fire event for this step of the framework init process
-        $this->container['events']->fire('framework: paths', [$this->container]);
-
-        // Required paths - merge with sub-frameworks' paths
-        $paths = array_merge([
-            'config'       => $this->container->path().DS.'config',
-            'storage'      => $this->container->path().DS.'storage',
-            'cache'        => $this->container->path().DS.'cache',
-        ], $paths);
-
-        // Process overrides and register in Application
-        $this->container->registerPath(array_merge($paths, $this->overrides['path']));
-
-        // Register tekton cache path (this needs to be done after sub-framework
-        // conf has been merged in order to allow the cache path to be overridable)
-        $this->container->registerPath('cache.tekton', ensure_dir_exists(get_path('cache').DS.'tekton'));
-
-        return $this;
-    }
-
-    public function registerUris($uris = [])
-    {
-        // Fire event for this step of the framework init process
-        $this->container['events']->fire('framework: uris', [$this->container]);
-
-        // Required URIs - merge with sub-frameworks' URIs
-        $uris = array_merge([
-            'cache'        => $this->container->uri().'/cache',
-            'storage'      => $this->container->uri().'/storage',
-        ], $uris);
-
-        // Process overrides and register in Application
-        $this->container->registerUri(array_merge($uris, $this->overrides['uri']));
-
-        // Register tekton cache uri (this needs to be done after sub-framework
-        // conf has been merged in order to allow the cache uri to be overridable)
-        $this->container->registerUri('cache.tekton', get_uri('cache').DS.'tekton');
-
-        return $this;
-    }
-
-    public function registerCore($providers = [])
-    {
-        // Fire event for this step of the framework init process
-        $this->container['events']->fire('framework: core', [$this->container]);
-
-        // Register all core providers defined by sub-framework
-        foreach ($providers as $provider) {
-            $this->container->register($provider);
+        if ($this->init) {
+            $this->resources->setPath($name, $path);
         }
 
         return $this;
     }
 
-    public function bootstrap($bootstrappers = [])
+    public function registerUrl($name, $url = '')
     {
-        // Fire event for this step of the framework init process
-        $this->container['events']->fire('framework: bootstrap', [$this->container]);
+        if (is_array($name)) {
+            $this->urls = array_merge($this->urls, $name);
+        }
+        else {
+            $this->urls[$name] = $url;
+        }
 
-        // Bootstrap the framework structure
-        $this->container->bootstrapWith(array_merge([
-            \Tekton\Bootstrap\LoadConfiguration::class,
-            \Tekton\Bootstrap\RegisterFacades::class,
-            \Tekton\Bootstrap\RegisterServices::class,
-        ], $bootstrappers));
+        if ($this->init) {
+            $this->resources->setUrl($name, $url);
+        }
+
+        return $this;
+    }
+
+    public function registerProvider($class)
+    {
+        if (is_array($class)) {
+            foreach ($class as $key => $provider) {
+                $this->registerProvider($provider);
+            }
+        }
+        else {
+            $key = (! is_string($class)) ? get_class($class) : $class;
+            $this->providers[$key] = $class;
+        }
+
+        if ($this->init) {
+            $this->loadProviders();
+        }
+
+        return $this;
+    }
+
+    public function registerAlias($alias, $class)
+    {
+        if (is_array($alias)) {
+            $this->aliases = array_merge($this->aliases, $alias);
+        }
+        else {
+            $this->aliases[$alias] = $class;
+        }
+
+        return $this;
+    }
+
+    public function registerConfig($file)
+    {
+        if (is_array($file)) {
+            $this->configs = array_merge($this->configs, $file);
+        }
+        else {
+            $this->configs[] = $file;
+        }
+
+        if ($this->init) {
+            $this->loadConfig(true);
+        }
 
         return $this;
     }
 
     public function setEnvironment($env)
     {
-        // Set a string as an environment name
-        if (! defined('TEKTON_ENV')) {
-            define('TEKTON_ENV', strtolower($env));
-        }
-
+        $this->env = $env;
         return $this;
     }
 
     public function getEnvironment()
     {
-        // Check what environment the framework is running under
-        return (! defined('TEKTON_ENV')) ? TEKTON_ENV : null;
-    }
-
-    public function overridePath($key, $path)
-    {
-        // Allow user overrides of framework paths
-        if (is_array($key)) {
-            $this->overrides['path'] = array_merge($this->overrides['path'], $key);
-        }
-        else {
-            $this->overrides['path'][$key] = $path;
-        }
-
-        return $this;
-    }
-
-    public function overrideUri($key, $uri)
-    {
-        // Allow user overrides of framework uris
-        if (is_array($key)) {
-            $this->overrides['uri'] = array_merge($this->overrides['uri'], $key);
-        }
-        else {
-            $this->overrides['uri'][$key] = $uri;
-        }
-
-        return $this;
+        return $this->env;
     }
 
     public function clearCache()
     {
         // Clear the framework's file cache (Database/Memcache cache are not
         // included in Tekton out of the box and is therefore not handled here)
-        delete_dir_contents($this->container->path('cache'));
+        if (is_dir($this->cacheDir)) {
+            delete_dir_contents($this->cacheDir);
+        }
+
+        return $this;
+    }
+
+    public function loadConfig($force = false)
+    {
+        if (! $this->container) {
+            throw new Exception("A PSR-11 container must be set before loading the config");
+        }
+        if (! $this->config) {
+            $this->setConfig(new Config);
+        }
+
+        $cachePath = $this->cacheDir.DS.'config.php';
+
+        // If a caching and cache file exist, load it instead
+        if (! $force && $this->cache && file_exists($cachePath)) {
+            $this->config->replace(require $cachePath);
+        }
+        else {
+            foreach ($this->configs as $path) {
+                $path = realpath($path);
+
+                // Make sure that the config file/dir exists
+                if (! file_exists($path)) {
+                    throw new ErrorException("Config path doesn't exist: ".$path);
+                }
+
+                // Process config directory
+                if (is_dir($path)) {
+                    // Load all config files
+                    foreach (file_search($path, '/^.*\.php$/i') as $file) {
+                        // Create a config key for the file
+                        $relPath = rel_path($file, $path);
+                        $configKey = str_replace(DS, '.', basename($relPath, '.php'));
+
+                        // Load file
+                        $this->config->set($configKey, require $file);
+                    }
+                }
+                // Process single file
+                else {
+                    $this->config->set(basename($path, '.php'), require $path);
+                }
+            }
+
+            // Cache the config file
+            if ($this->cache) {
+                write_object_to_file($cachePath, $this->config->all());
+            }
+        }
 
         return $this;
     }
