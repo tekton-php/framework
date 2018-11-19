@@ -7,8 +7,8 @@ use Psr\Container\ContainerInterface;
 use Tekton\Facade;
 use Tekton\Config;
 use Tekton\ResourceManager;
-use Tekton\Support\Contracts\Store;
 use Tekton\Support\Contracts\Singleton;
+use Tekton\Contracts\ConfigInterface;
 use Tekton\Contracts\ServiceProviderInterface;
 use Tekton\Contracts\ResourceManagerInterface;
 
@@ -213,9 +213,9 @@ class Framework implements Singleton
         return $this->resources;
     }
 
-    public function setConfig(Store $config)
+    public function setConfig(ConfigInterface $config)
     {
-        $this->container->set(Config::class, $config);
+        $this->container->set(ConfigInterface::class, $config);
         $this->container->set('config', $config);
         $this->config = $config;
 

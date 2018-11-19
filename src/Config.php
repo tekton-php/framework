@@ -1,6 +1,9 @@
 <?php namespace Tekton;
 
-class Config extends \Tekton\Support\Repository
+use Tekton\Support\Repository;
+use Tekton\Contracts\ConfigInterface;
+
+class Config extends Repository implements ConfigInterface
 {
-    
+
 }
