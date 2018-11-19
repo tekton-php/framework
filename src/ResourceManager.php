@@ -10,7 +10,7 @@ class ResourceManager implements ResourceManagerInterface
     protected $urls = [];
     protected $paths = [];
 
-    public function __construct($rootPath, $rootUrl = '')
+    public function __construct($rootPath = '', $rootUrl = '')
     {
         $this->setRootPath($rootPath);
         $this->setRootUrl($rootUrl);

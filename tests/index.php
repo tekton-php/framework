@@ -9,9 +9,15 @@ $framework->setContainer(new \DI\Container)
           ->setEnvironment('production')
           ->setResourceCaching(true)
           ->setCacheDir(__DIR__.DS.'cache')
-          ->setFacadeNamespace('Tekton\\Facades', $src.DS.'Facades')
+          ->setFacadeAliases('Tekton\\Facades', $src.DS.'Facades')
           ->registerAlias('Config', 'Tekton\\Facades\\Config')
-          ->registerConfig(__DIR__.DS.'config');
+          ->registerConfig(__DIR__.DS.'config')
+          ->loadEnv()
+          ->loadConfig()
+          ->loadResources()
+          ->loadAliases()
+          ->loadProviders();
+
 
 // $framework->registerProvider(new \Tekton\TestServiceProvider);
 // $framework->registerProvider(\Tekton\TestTwoServiceProvider::class);

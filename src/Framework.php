@@ -19,6 +19,9 @@ class Framework implements Singleton
     protected $config;
     protected $dotenv;
 
+    protected $rootPath = '';
+    protected $rootUrl = '';
+
     protected $cacheDir;
     protected $init = false;
     protected $cache = false;
@@ -29,6 +32,7 @@ class Framework implements Singleton
     protected $providers = [];
     protected $loadedProviders = [];
     protected $aliases = [];
+    protected $autoloader = false;
     protected $facadeNamespace = '';
     protected $facadeDir = '';
 
@@ -43,7 +47,7 @@ class Framework implements Singleton
             define('TEKTON_DIR', __DIR__);
     }
 
-    public function init($basePath, $baseUrl = '')
+    public function init($rootPath = null, $rootUrl = null)
     {
         if ($this->init) {
             throw new Exception("You cannot re-init the framework");
@@ -55,9 +59,17 @@ class Framework implements Singleton
             throw new Exception("A PSR-11 container must be set before initializing");
         }
 
+        // Set base URIs
+        if (! is_null($rootPath)) {
+            $this->setRootPath($rootPath);
+        }
+        if (! is_null($rootUrl)) {
+            $this->setRootUrl($rootUrl);
+        }
+
         // Load environment
         if (! $this->dotenv) {
-            $this->loadEnv($basePath);
+            $this->loadEnv();
         }
 
         // Load config
@@ -65,21 +77,81 @@ class Framework implements Singleton
             $this->loadConfig();
         }
 
-        // Create resource URIs manager
+        // Load resources
         if (! $this->resources) {
-            $this->setResourceManager(new ResourceManager($basePath, $baseUrl));
-
-            // Register resource URIs
-            $this->resources->setPath($this->paths);
-            $this->resources->setUrl($this->urls);
+            $this->loadResources();
         }
 
-        // Register alias autoload
-        spl_autoload_register([$this, 'aliasLoader'], true, true);
+        // Load aliases
+        if (! $this->autoloader) {
+            $this->loadAliases();
+        }
 
         // Register providers
         $this->loadProviders();
         $this->init = true;
+
+        return $this;
+    }
+
+    public function setRootPath($path)
+    {
+        $this->rootPath = $path;
+
+        if ($this->resources) {
+            $this->resources->setRootPath($rootPath);
+        }
+
+        return $this;
+    }
+
+    public function getRootPath()
+    {
+        if ($this->resources) {
+            return $this->resources->getRootPath();
+        }
+
+        return $this->rootPath;
+    }
+
+    public function setRootUrl($url)
+    {
+        $this->rootUrl = $url;
+
+        if ($this->resources) {
+            $this->resources->setRootUrl($rootUrl);
+        }
+
+        return $this;
+    }
+
+    public function getRootUrl()
+    {
+        if ($this->resources) {
+            return $this->resources->getRootUrl();
+        }
+
+        return $this->rootUrl;
+    }
+
+    public function loadAliases()
+    {
+        // Register alias autoload
+        spl_autoload_register([$this, 'aliasLoader'], true, true);
+        $this->autoloader = true;
+
+        return $this;
+    }
+
+    public function loadResources()
+    {
+        if (! $this->resources) {
+            $this->setResourceManager(new ResourceManager($this->rootPath, $this->rootUrl));
+        }
+
+        // Register resource URIs
+        $this->resources->setPath($this->paths);
+        $this->resources->setUrl($this->urls);
 
         return $this;
     }
@@ -131,7 +203,7 @@ class Framework implements Singleton
         return false;
     }
 
-    public function setFacadeNamespace($namespace, $dir)
+    public function setFacadeAliases($namespace, $dir)
     {
         $this->facadeNamespace = $namespace;
         $this->facadeDir = $dir;
@@ -165,8 +237,10 @@ class Framework implements Singleton
         return $this->cacheDir;
     }
 
-    public function loadEnv($path)
+    public function loadEnv($path = null)
     {
+        $path = $path ?? $this->rootPath;
+
         if (is_dir($path)) {
             $path = $path.DS.'.env';
         }
@@ -236,7 +310,7 @@ class Framework implements Singleton
             $this->paths[$name] = $path;
         }
 
-        if ($this->init) {
+        if ($this->resources) {
             $this->resources->setPath($name, $path);
         }
 
@@ -252,7 +326,7 @@ class Framework implements Singleton
             $this->urls[$name] = $url;
         }
 
-        if ($this->init) {
+        if ($this->resources) {
             $this->resources->setUrl($name, $url);
         }
 
@@ -335,6 +409,9 @@ class Framework implements Singleton
         }
         if (! $this->config) {
             $this->setConfig(new Config);
+        }
+        if ($this->cache && ! $this->cacheDir) {
+            throw new Exception("A cache dir must be set if caching is enabled");
         }
 
         $cachePath = $this->cacheDir.DS.'config.php';

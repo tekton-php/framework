@@ -27,7 +27,7 @@ $framework->setContainer(new Container)
           ->setResourceCaching(true)
           ->setCacheDir(__DIR__.'/cache')
           ->registerConfig(__DIR__.'/config');
-          ->setFacadeNamespace('Project\\Facades', __DIR__.'/Facades')
+          ->setFacadeAliases('Project\\Facades', __DIR__.'/Facades')
           ->registerAlias('ProjectClass', 'Project\\Class');
 
 $framework->registerProvider([
