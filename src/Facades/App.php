@@ -4,6 +4,6 @@ class App extends \Tekton\Facade
 {
     protected static function getFacadeAccessor()
     {
-        return 'app';
+        return 'container';
     }
 }

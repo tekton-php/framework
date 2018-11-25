@@ -259,7 +259,7 @@ class Framework implements Singleton
     public function setContainer(ContainerInterface $container)
     {
         $container->set(ContainerInterface::class, $container);
-        $container->set('app', $container);
+        $container->set('container', $container);
         $this->container = $container;
 
         Facade::clearResolvedInstances();

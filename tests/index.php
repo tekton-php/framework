@@ -18,7 +18,6 @@ $framework->setContainer(new \DI\Container)
           ->loadAliases()
           ->loadProviders();
 
-
 // $framework->registerProvider(new \Tekton\TestServiceProvider);
 // $framework->registerProvider(\Tekton\TestTwoServiceProvider::class);
 
