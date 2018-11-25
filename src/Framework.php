@@ -99,7 +99,7 @@ class Framework implements Singleton
         $this->rootPath = $path;
 
         if ($this->resources) {
-            $this->resources->setRootPath($rootPath);
+            $this->resources->setRootPath($this->rootPath);
         }
 
         return $this;
@@ -119,7 +119,7 @@ class Framework implements Singleton
         $this->rootUrl = $url;
 
         if ($this->resources) {
-            $this->resources->setRootUrl($rootUrl);
+            $this->resources->setRootUrl($this->rootUrl);
         }
 
         return $this;
